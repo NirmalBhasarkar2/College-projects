@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tic Tac Toe Modern</title>
+<style>
+    body {
+        margin: 0;
+        height: 100vh;
+        font-family: 'Segoe UI', sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #00c6ff, #0072ff);
+        color: white;
+    }
+
+    .game-container {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(15px);
+        border-radius: 20px;
+        padding: 20px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+        text-align: center;
+    }
+
+    h1 {
+        margin-bottom: 10px;
+    }
+
+    .board {
+        display: grid;
+        grid-template-columns: repeat(3, 100px);
+        grid-template-rows: repeat(3, 100px);
+        gap: 10px;
+        justify-content: center;
+        margin: 20px 0;
+    }
+
+    .cell {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: transform 0.2s, background 0.3s;
+    }
+
+    .cell:hover {
+        transform: scale(1.1);
+        background: rgba(255, 255, 255, 0.35);
+    }
+
+    .cell.win {
+        background: #4CAF50 !important;
+        animation: glow 1s infinite alternate;
+    }
+
+    @keyframes glow {
+        from { box-shadow: 0 0 10px #4CAF50; }
+        to { box-shadow: 0 0 20px #4CAF50; }
+    }
+
+    .status {
+        font-size: 1.2rem;
+        margin-top: 10px;
+    }
+
+    button {
+        background: #ff9800;
+        border: none;
+        padding: 10px 20px;
+        font-size: 1rem;
+        border-radius: 10px;
+        cursor: pointer;
+        color: white;
+        margin-top: 10px;
+        transition: background 0.3s;
+    }
+
+    button:hover {
+        background: #e68900;
+    }
+</style>
+</head>
+<body>
+<div class="game-container">
+    <h1>✨ Tic Tac Toe ✨</h1>
+    <div class="board" id="board"></div>
+    <div class="status" id="status">Player X's turn</div>
+    <button onclick="resetGame()">Reset Game</button>
+</div>
+
+<script>
+    const boardEl = document.getElementById('board');
+    const statusEl = document.getElementById('status');
+    let board = Array(9).fill('');
+    let currentPlayer = 'X';
+    let gameActive = true;
+
+    const winningCombinations = [
+        [0,1,2], [3,4,5], [6,7,8],
+        [0,3,6], [1,4,7], [2,5,8],
+        [0,4,8], [2,4,6]
+    ];
+
+    function createBoard() {
+        boardEl.innerHTML = '';
+        board.forEach((cell, index) => {
+            const cellEl = document.createElement('div');
+            cellEl.classList.add('cell');
+            cellEl.textContent = cell;
+            cellEl.addEventListener('click', () => handleClick(index));
+            boardEl.appendChild(cellEl);
+        });
+    }
+
+    function handleClick(index) {
+        if (!gameActive || board[index] !== '') return;
+        board[index] = currentPlayer;
+        createBoard();
+        checkWinner();
+        currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+        if (gameActive) statusEl.textContent = `Player ${currentPlayer}'s turn`;
+    }
+
+    function checkWinner() {
+        for (const [a,b,c] of winningCombinations) {
+            if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+                document.querySelectorAll('.cell')[a].classList.add('win');
+                document.querySelectorAll('.cell')[b].classList.add('win');
+                document.querySelectorAll('.cell')[c].classList.add('win');
+                statusEl.textContent = `🎉 Player ${board[a]} Wins! 🎉`;
+                gameActive = false;
+                return;
+            }
+        }
+        if (!board.includes('')) {
+            statusEl.textContent = `It's a Draw!`;
+            gameActive = false;
+        }
+    }
+
+    function resetGame() {
+        board = Array(9).fill('');
+        currentPlayer = 'X';
+        gameActive = true;
+        statusEl.textContent = `Player X's turn`;
+        createBoard();
+    }
+
+    createBoard();
+</script>
+</body>
+</html>
