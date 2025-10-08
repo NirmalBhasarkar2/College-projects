@@ -1,1 +1,1 @@
-# some of the small project i did.
+# some of the small projects that i did.
