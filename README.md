@@ -1,1 +1,1 @@
-# some of the small python projects, 
+# some of the small project i did.
