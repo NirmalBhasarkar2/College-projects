@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name         Page Progess counter for Weebcentral
 // @namespace    http://tampermonkey.net/
-// @version      1.1
-// @description  Shows "current page/total pages" on the bottom-left of the window for reading websites. Stays a constant size when zooming.
+// @version      1.2
+// @description  Shows "current page/total pages" on the bottom-left of the window for reading websites.
 // @author       Nirmal Bhasarkar
 // @license      MIT
-// @match        *://*/*
+// @match        https://weebcentral.com/chapters/*
 // @grant        none
 // @run-at       document-idle
 // ==/UserScript==
@@ -14,22 +14,11 @@
     'use strict';
 
     const config = {
-        // --- DEBUGGING ---
-        // Set to true to show console logs if the script stops working.
-        debug: false,
-
         // --- POSITIONING ---
         counterPosition: {
-            bottom: '2px', // Modify this two values to move the box location
+            bottom: '5px', // Modify this two values to move the box location
             left: '5px'
         },
-
-        // --- TOTAL PAGES (Selector for one-time scan) ---
-        totalPagesSelector: "button[\\@click*='page =']",
-        totalPagesTextSelector: ".page-info, #page-count, .total-pages, .last-page",
-
-        // --- CURRENT PAGE (Selector for frequent updates) ---
-        currentPageImageSelector: ".viewer-image img, #main-image, img[src*=\"scans\"], .comic-page img, .manga-page, .page-content img",
     };
     // --- End of Configuration ---
 
@@ -37,13 +26,6 @@
     let cachedTotalPages = null;
     let observer;
 
-    function log(...args) {
-        if (config.debug) {
-            console.log('[Page Counter]', ...args);
-        }
-    }
-
-    // This debounce implementation ensures each debounced function has its own timer.
     function debounce(func, delay) {
         let debounceTimer;
         return function(...args) {
@@ -63,17 +45,15 @@
             position: 'fixed',
             bottom: config.counterPosition.bottom,
             left: config.counterPosition.left,
-            color: 'rgba(255, 255, 255, 0.5)',           //Adjust 0.8 to increase or decrease text brightness
             padding: '5px 7px',
             borderRadius: '0px',
-            border: '0.3px solid rgba(1, 1, 12, 0.0)',  //Set 01.0 to 0.0 to hide the border
-            backgroundColor: 'rgba(73, 83, 89, 0.0)',   //Set 01.0 to 0.0 to hide the background
+            color: 'rgba(255, 255, 255, 0.5)',          //Adjust 0.X to increase or decrease text brightness
+            border: '0.3px solid rgba(1, 1, 12, 1.0)',  //Set 1.0 to 0.0 to hide the border
+            backgroundColor: 'rgba(73, 83, 89, 1.0)',   //Set 1.0 to 0.0 to hide the background
             zIndex: '99999',
             fontSize: '17px',
             fontFamily: 'Inter, sans-serif',
             fontWeight: '525',
-            transition: 'opacity 0.0s',
-            opacity: '0.8',
             pointerEvents: 'none',
         });
         document.body.appendChild(pageCounterElement);
@@ -90,71 +70,37 @@
         pageCounterElement.style.transformOrigin = 'bottom left';
     }
 
+
     /**
-     * Finds the total number of pages ONCE and caches the result.
+     * Finds the total number of pages ONCE by reading the hidden input field.
      */
     function findAndCacheTotalPages() {
-        if (cachedTotalPages !== null) {
-            return cachedTotalPages;
-        }
-        log("Scanning for total pages (one-time operation)...");
+        if (cachedTotalPages !== null) return;
         try {
-            const pageButtons = document.querySelectorAll(config.totalPagesSelector);
-            if (pageButtons.length > 0) {
-                cachedTotalPages = pageButtons.length;
-                log("Total pages found and cached:", cachedTotalPages);
-                return cachedTotalPages;
+            const maxPageInput = document.getElementById('max_page');
+            if (maxPageInput && maxPageInput.value) {
+                cachedTotalPages = parseInt(maxPageInput.value, 10);
             }
-        } catch (e) { log("Error with totalPagesSelector", e); }
-        log("Could not determine total pages.");
-        return null;
+        } catch (e) {
+            console.error("[Page Counter] Error reading total pages.", e);
+        }
     }
 
     /**
-     * Finds the current page number. This is run more frequently.
+     * Finds the current page number by reading the visible page button.
      */
     function getCurrentPage() {
-        log("Searching for current page...");
-        // Strategy 1: Look for page number in the URL
         try {
-            const url = window.location.href;
-            const urlMatch = url.match(/(?:\/page\/|\/|-)(\d+)(?:\.html|\/)?(?:$|\?)/) || url.match(/[?&](?:page|p|c)=(\d+)/);
-            if (urlMatch && urlMatch[1]) {
-                const pageNum = parseInt(urlMatch[1], 10);
-                log("Current page found (from URL):", pageNum);
-                return pageNum;
-            }
-        } catch (e) { log("Error parsing URL", e); }
-
-        // Strategy 2: Find the visible page image and check its attributes or filename
-        try {
-            const images = Array.from(document.querySelectorAll(config.currentPageImageSelector));
-            log(`Found ${images.length} potential page images with selector: "${config.currentPageImageSelector}"`);
-            for (const img of images) {
-                const rect = img.getBoundingClientRect();
-                if (rect.top < window.innerHeight && rect.bottom > 0) { // Check if visible
-                    // Strategy 2a: Check for a 'data-page-number' attribute on the image or its parent
-                    const container = img.closest('div[data-page-number], li[data-page-number]');
-                    if (container && container.dataset.pageNumber) {
-                        const pageNum = parseInt(container.dataset.pageNumber, 10);
-                        log("Current page found (from parent data-page-number):", pageNum);
-                        return pageNum;
-                    }
-
-                    // Strategy 2b: Check the image's filename
-                    const src = img.src || img.dataset.src;
-                    if (!src) continue;
-                    const filenameMatch = src.match(/(\d+)\.(jpg|jpeg|png|webp|gif)/i);
-                    if (filenameMatch && filenameMatch[1]) {
-                        const pageNum = parseInt(filenameMatch[1], 10);
-                        log("Current page found (from visible image filename):", pageNum);
-                        return pageNum;
-                    }
+            const pageButton = document.querySelector("button[x-text=\"'Page ' + page\"]");
+            if (pageButton && pageButton.textContent) {
+                const match = pageButton.textContent.match(/(\d+)/);
+                if (match && match[1]) {
+                    return parseInt(match[1], 10);
                 }
             }
-        } catch (e) { log("Error with currentPageImageSelector", e); }
-
-        log("Could not determine current page.");
+        } catch(e) {
+            console.error("[Page Counter] Error reading current page.", e);
+        }
         return null;
     }
 
@@ -163,42 +109,46 @@
      */
     function updatePageCount() {
         if (!pageCounterElement) return;
-        log("--- Updating Page Count ---");
-        const current = getCurrentPage();
-        const total = cachedTotalPages; // Use the cached value
 
-        log(`Result -> Current: ${current}, Total: ${total}`);
+        const current = getCurrentPage();
+        const total = cachedTotalPages;
+
         if (current !== null || total !== null) {
             const currentStr = current !== null ? current : '?';
             const totalStr = total !== null ? total : '?';
-            pageCounterElement.textContent = `${currentStr}/${totalStr}`; // MODIFY this to change the display text.
+            pageCounterElement.textContent = `${currentStr}/${totalStr}`;
             pageCounterElement.style.opacity = '1';
         } else {
              pageCounterElement.style.opacity = '0';
         }
     }
 
-    const debouncedUpdate = debounce(updatePageCount, 250);
+    const debouncedUpdate = debounce(updatePageCount, 50);
 
     function init() {
-        log("Initializing Page Counter script.");
         createCounterElement();
-        adjustForZoom(); // Set the initial scale based on current zoom
-
-        // Find total pages once after the page loads
+        adjustForZoom(); // Set the initial scale
         findAndCacheTotalPages();
 
-        // Then, set up the observer to only update the current page
+        const observerTarget = document.querySelector("button[x-text=\"'Page ' + page\"]");
+        if (!observerTarget) {
+            console.error("[Page Counter] Could not find target page button for observation.");
+            updatePageCount(); // Try to update once
+            return;
+        }
+
         observer = new MutationObserver(() => {
-            log("DOM changed, queueing re-check for CURRENT page.");
             debouncedUpdate();
         });
-        observer.observe(document.body, { childList: true, subtree: true });
+
+        observer.observe(observerTarget, {
+            childList: true,
+            subtree: true
+        });
 
         // Listen for resize/zoom events to keep the counter size consistent
         window.addEventListener('resize', debounce(adjustForZoom, 100));
 
-        // Run an initial update
         updatePageCount();
     }
 
@@ -208,3 +158,4 @@
         window.addEventListener('load', init);
     }
 })();
+
